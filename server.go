@@ -6,6 +6,7 @@ import (
 	"net/url"
 )
 
+// Server represents server
 type Server interface {
 	Address() string
 	IsAlive() bool

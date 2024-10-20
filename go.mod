@@ -1,3 +1,3 @@
-module github.com/dhyanio/go-lb
+module github.com/dhyanio/gloadbalancer
 
 go 1.23.1
