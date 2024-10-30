@@ -1,16 +1,20 @@
 package golb
 
 import (
-	"fmt"
+	"log"
 	"net/http"
+	"sync"
 )
 
+// LoadBalancer represents a simple round-robin load balancer.
 type LoadBalancer struct {
 	port            string
 	roundRobinCount int
 	servers         []Server
+	mu              sync.Mutex
 }
 
+// NewLoadBalancer initializes a LoadBalancer with the specified port and servers.
 func NewLoadBalancer(port string, servers []Server) *LoadBalancer {
 	return &LoadBalancer{
 		port:            port,
@@ -18,7 +22,12 @@ func NewLoadBalancer(port string, servers []Server) *LoadBalancer {
 		servers:         servers,
 	}
 }
+
+// getNextAvailableServer returns the next available server in a round-robin fashion.
 func (lb *LoadBalancer) getNextAvailableServer() Server {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
 	server := lb.servers[lb.roundRobinCount%len(lb.servers)]
 	for !server.IsAlive() {
 		lb.roundRobinCount++
@@ -28,26 +37,26 @@ func (lb *LoadBalancer) getNextAvailableServer() Server {
 	return server
 }
 
-func (lb *LoadBalancer) serverProxy(rw http.ResponseWriter, r *http.Request) {
-	targetSever := lb.getNextAvailableServer()
-	fmt.Printf("Forwarding request to address %q\n", targetSever.Address())
-	targetSever.Serve(rw, r)
+// serveProxy forwards the request to the selected server.
+func (lb *LoadBalancer) serveProxy(rw http.ResponseWriter, r *http.Request) {
+	targetServer := lb.getNextAvailableServer()
+	log.Printf("Forwarding request to address %q\n", targetServer.Address())
+	targetServer.Serve(rw, r)
 }
 
-// Start starts loadbalancer
-func start(serverAdd []string, port string) {
+// Start initializes servers, sets up the load balancer, and starts listening on the specified port.
+func Start(serverAddresses []string, port string) {
 	var servers []Server
 
-	for _, value := range serverAdd {
-		servers = append(servers, newSimpleServer(value))
+	for _, addr := range serverAddresses {
+		servers = append(servers, NewSimpleServer(addr))
 	}
 
 	lb := NewLoadBalancer(port, servers)
-	handleRedirect := func(rw http.ResponseWriter, req *http.Request) {
-		lb.serverProxy(rw, req)
-	}
+	http.HandleFunc("/", lb.serveProxy)
 
-	http.HandleFunc("/", handleRedirect)
-	fmt.Printf("Serving requests at localhost:%s\n", lb.port)
-	http.ListenAndServe(":"+lb.port, nil)
+	log.Printf("Load balancer listening on port %s\n", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
