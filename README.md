@@ -1,3 +1,3 @@
-# gloadbalancer: Simple load balancer
+# GoLB: Simple but easy to use Golang Loadbalancer
 
-Gloadbalancer is a simple  load balancer in Golang.
+GoLB is a simple RoundRobin golang loadbalancer. It performs active cleaning and passive recovery for unhealty backends.
