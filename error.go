@@ -1,4 +1,4 @@
-package gloadbalancer
+package golb
 
 import "fmt"
 
