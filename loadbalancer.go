@@ -4,9 +4,10 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
-// LoadBalancer represents a simple round-robin load balancer.
+// LoadBalancer represents a simple round-robin load balancer with active cleaning and passive recovery.
 type LoadBalancer struct {
 	port            string
 	roundRobinCount int
@@ -16,11 +17,13 @@ type LoadBalancer struct {
 
 // NewLoadBalancer initializes a LoadBalancer with the specified port and servers.
 func NewLoadBalancer(port string, servers []Server) *LoadBalancer {
-	return &LoadBalancer{
+	lb := &LoadBalancer{
 		port:            port,
 		roundRobinCount: 0,
 		servers:         servers,
 	}
+	go lb.recoverUnhealthyServers(10 * time.Second)
+	return lb
 }
 
 // getNextAvailableServer returns the next available server in a round-robin fashion.
@@ -28,28 +31,52 @@ func (lb *LoadBalancer) getNextAvailableServer() Server {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	server := lb.servers[lb.roundRobinCount%len(lb.servers)]
-	for !server.IsAlive() {
+	for i := 0; i < len(lb.servers); i++ {
+		server := lb.servers[lb.roundRobinCount%len(lb.servers)]
+		if server.IsAlive() {
+			lb.roundRobinCount++
+			return server
+		}
 		lb.roundRobinCount++
-		server = lb.servers[lb.roundRobinCount%len(lb.servers)]
 	}
-	lb.roundRobinCount++
-	return server
+
+	log.Println("No healthy servers available")
+	return nil
 }
 
 // serveProxy forwards the request to the selected server.
 func (lb *LoadBalancer) serveProxy(rw http.ResponseWriter, r *http.Request) {
-	targetServer := lb.getNextAvailableServer()
-	log.Printf("Forwarding request to address %q\n", targetServer.Address())
-	targetServer.Serve(rw, r)
+	server := lb.getNextAvailableServer()
+	if server == nil {
+		http.Error(rw, "Service Unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	log.Printf("Forwarding request to address %q\n", server.Address())
+	server.Serve(rw, r)
+}
+
+// recoverUnhealthyServers periodically checks and recovers unhealthy servers.
+func (lb *LoadBalancer) recoverUnhealthyServers(interval time.Duration) {
+	for {
+		time.Sleep(interval)
+		lb.mu.Lock()
+		for _, server := range lb.servers {
+			if !server.IsAlive() {
+				log.Printf("Attempting to recover server at %s", server.Address())
+				server.StartHealthCheck(2 * time.Second) // Start health check on the server
+			}
+		}
+		lb.mu.Unlock()
+	}
 }
 
 // Start initializes servers, sets up the load balancer, and starts listening on the specified port.
 func Start(serverAddresses []string, port string) {
 	var servers []Server
-
 	for _, addr := range serverAddresses {
-		servers = append(servers, NewSimpleServer(addr))
+		server := NewSimpleServer(addr)
+		server.StartHealthCheck(2 * time.Second) // Regular health check
+		servers = append(servers, server)
 	}
 
 	lb := NewLoadBalancer(port, servers)

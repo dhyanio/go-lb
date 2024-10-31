@@ -6,12 +6,8 @@ GoLB is a simple RoundRobin golang loadbalancer. It performs active cleaning and
 ```go
 func main() {
     // Slice of servers
-	serverList := []string{
-		"https://www.google.com/",
-		"https://github.com/dhyanio",
-		"https://www.linkedin.com/in/dhyanio/",
-	}
-
+	servers := []string{"http://localhost:8081", "http://localhost:8082"}
+    
     // Start Loadbalancer
 	golb.Start(serverList, "3000")
 }
