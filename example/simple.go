@@ -5,11 +5,6 @@ import (
 )
 
 func main() {
-	serverList := []string{
-		"https://www.google.com/",
-		"https://github.com/dhyanio",
-		"https://www.linkedin.com/in/dhyanio/",
-	}
-
-	golb.Start(serverList, "3000")
+	servers := []string{"http://localhost:8081", "http://localhost:8082"}
+	golb.Start(servers, "3000")
 }
