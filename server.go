@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// Server represents a load-balanced server interface.
-type Server interface {
+// server represents a load-balanced server interface.
+type server interface {
 	Address() string
 	IsAlive() bool
 	Serve(http.ResponseWriter, *http.Request)
@@ -18,22 +18,22 @@ type Server interface {
 	MarkUnhealthy()
 }
 
-// SimpleServer represents a backend server with reverse proxy capabilities and health-check status.
-type SimpleServer struct {
+// simpleServer represents a backend server with reverse proxy capabilities and health-check status.
+type simpleServer struct {
 	addr    string
 	proxy   *httputil.ReverseProxy
 	isAlive bool
 	mu      sync.Mutex
 }
 
-// NewSimpleServer creates a new instance of SimpleServer with reverse proxy and health-check status.
-func NewSimpleServer(addr string) *SimpleServer {
+// newSimpleServer creates a new instance of simpleServer with reverse proxy and health-check status.
+func newSimpleServer(addr string) *simpleServer {
 	serverUrl, err := url.Parse(addr)
 	if err != nil {
 		log.Fatalf("Failed to parse server URL %q: %v", addr, err)
 	}
 
-	return &SimpleServer{
+	return &simpleServer{
 		addr:    addr,
 		proxy:   httputil.NewSingleHostReverseProxy(serverUrl),
 		isAlive: true,
@@ -41,31 +41,31 @@ func NewSimpleServer(addr string) *SimpleServer {
 }
 
 // Address returns the server address.
-func (s *SimpleServer) Address() string {
+func (s *simpleServer) Address() string {
 	return s.addr
 }
 
 // IsAlive returns the current health status of the server.
-func (s *SimpleServer) IsAlive() bool {
+func (s *simpleServer) IsAlive() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.isAlive
 }
 
 // MarkUnhealthy marks the server as unhealthy.
-func (s *SimpleServer) MarkUnhealthy() {
+func (s *simpleServer) MarkUnhealthy() {
 	s.mu.Lock()
 	s.isAlive = false
 	s.mu.Unlock()
 }
 
 // Serve handles the HTTP request by forwarding it to the reverse proxy.
-func (s *SimpleServer) Serve(rw http.ResponseWriter, req *http.Request) {
+func (s *simpleServer) Serve(rw http.ResponseWriter, req *http.Request) {
 	s.proxy.ServeHTTP(rw, req)
 }
 
 // StartHealthCheck periodically checks the server’s health and updates its status.
-func (s *SimpleServer) StartHealthCheck(interval time.Duration) {
+func (s *simpleServer) StartHealthCheck(interval time.Duration) {
 	go func() {
 		for {
 			resp, err := http.Get(s.addr + "/health")

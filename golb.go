@@ -11,12 +11,12 @@ import (
 type LoadBalancer struct {
 	port            string
 	roundRobinCount int
-	servers         []Server
+	servers         []server
 	mu              sync.Mutex
 }
 
 // NewLoadBalancer initializes a LoadBalancer with the specified port and servers.
-func NewLoadBalancer(port string, servers []Server) *LoadBalancer {
+func NewLoadBalancer(port string, servers []server) *LoadBalancer {
 	lb := &LoadBalancer{
 		port:            port,
 		roundRobinCount: 0,
@@ -27,7 +27,7 @@ func NewLoadBalancer(port string, servers []Server) *LoadBalancer {
 }
 
 // getNextAvailableServer returns the next available server in a round-robin fashion.
-func (lb *LoadBalancer) getNextAvailableServer() Server {
+func (lb *LoadBalancer) getNextAvailableServer() server {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
@@ -72,9 +72,9 @@ func (lb *LoadBalancer) recoverUnhealthyServers(interval time.Duration) {
 
 // Start initializes servers, sets up the load balancer, and starts listening on the specified port.
 func Start(serverAddresses []string, port string) {
-	var servers []Server
+	var servers []server
 	for _, addr := range serverAddresses {
-		server := NewSimpleServer(addr)
+		server := newSimpleServer(addr)
 		server.StartHealthCheck(2 * time.Second) // Regular health check
 		servers = append(servers, server)
 	}
