@@ -1,4 +1,4 @@
-# GoLB: The Lightweight, User-Friendly Load Balancer in Go
+# GoLB: The Lightweight, User-Friendly Load Balancer for Testing in Go
 <img src="./doc/golb.png" alt="Discache" width="700"/>
 
 GoLB is a simple RoundRobin golang loadbalancer. It performs active cleaning and passive recovery for unhealthy   backends.
